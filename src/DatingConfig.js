@@ -371,7 +371,7 @@ const DatingConfig = {
     },*/
   ],
   contactUsPhoneNumber: '+16504859694',
-  IAP_SHARED_SECRET: '699db7fcf10c4922bf148caf334c89c6',
+  IAP_SHARED_SECRET: '' // legacy native secret removed; configure securely if this archive is revived,
   IAP_SKUS: Platform.select({
     ios: [
       'com.instaswipey.FreeTrial.InstaswipeyAutoRenewableSubscriptionByMonth',
