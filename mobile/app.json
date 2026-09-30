@@ -4,13 +4,26 @@
     "slug": "mix-n-match",
     "version": "2.0.0",
     "orientation": "portrait",
+    "scheme": "mixnmatch",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#090b0e"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bthecoderr.mixnmatch"
     },
     "android": {
-      "edgeToEdgeEnabled": true
+      "package": "com.bthecoderr.mixnmatch",
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#090b0e"
+      }
     }
   }
 }
