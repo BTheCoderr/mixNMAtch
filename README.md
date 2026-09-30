@@ -1,5 +1,11 @@
 # Mix N' Match
 
+<!-- repo-intro:start -->
+**Project snapshot:** Mix N' Match is a combat-sports training partner network with shared matching logic across a React web/PWA client and an Expo/React Native mobile client.
+
+**What it demonstrates:** React · React Native/Expo · shared domain logic · local-first state · matching UX.
+<!-- repo-intro:end -->
+
 Mix N' Match is a combat-sports training network for finding compatible sparring, drilling, pad-work, grappling, and conditioning partners.
 
 The original repository was a React Native 0.63-era app built from a dating template. Its own copy and configuration had already shifted toward finding sparring partners. The modern revival keeps that product direction and now ships as **both a web/PWA client and a fresh mobile client**.
