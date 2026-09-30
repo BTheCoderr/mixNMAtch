@@ -1,5 +1,11 @@
 # Mix N' Match
 
+<!-- repo-intro:start -->
+**Project snapshot:** Mix N' Match is a combat-sports training partner network with shared matching logic across a React web/PWA client and an Expo/React Native mobile client.
+
+**What it demonstrates:** React · React Native/Expo · shared domain logic · local-first state · matching UX.
+<!-- repo-intro:end -->
+
 Mix N' Match is a combat-sports training network for finding compatible sparring, drilling, pad-work, grappling, and conditioning partners.
 
 The original repository was a React Native 0.63-era app built from a dating template. Its own copy and configuration had already shifted toward finding sparring partners. The modern revival keeps that product direction and now ships as **both a web/PWA client and a fresh mobile client**.
@@ -105,7 +111,7 @@ npm run ios
 npm run android
 ```
 
-The mobile app stores local state in AsyncStorage under `mix-n-match-mobile-v1`.
+The mobile app stores local state in AsyncStorage under `mix-n-match-mobile-v2`.
 
 The mobile implementation is intentionally new. It does not depend on the obsolete Firebase/Twilio/IAP/navigation packages from the archived native app.
 
@@ -137,10 +143,11 @@ A hard-coded legacy in-app-purchase shared secret was removed during the first r
 GitHub Actions now validates both product surfaces:
 
 1. clean Node 22 web install + Vite production build
-2. shared-core syntax
-3. clean Expo mobile install + dependency check
+2. shared-core syntax + automated compatibility tests
+3. clean Expo mobile install + dependency compatibility check
 4. Android JavaScript export through Expo/Metro
-
+5. iOS JavaScript export through Expo/Metro
+6. release-config and mobile asset checks
 
 ## Release-readiness pass
 
