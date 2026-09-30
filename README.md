@@ -6,6 +6,23 @@
 **What it demonstrates:** React · React Native/Expo · shared domain logic · local-first state · matching UX.
 <!-- repo-intro:end -->
 
+<!-- portfolio-refresh:start -->
+## Product at a glance
+
+| Area | Current build |
+| --- | --- |
+| Surfaces | React web/PWA + Expo/React Native mobile |
+| Shared logic | One fighter model + compatibility engine across both clients |
+| Discovery | Ranked partners with explainable compatibility scoring |
+| Training flow | Discover → Connect → Plan session → Accept → Complete/Cancel |
+| Safety | Local report/block controls + pace/safety guidance |
+| Release work | EAS profiles, bundle IDs, native assets, Android/iOS export checks |
+
+### Engineering angle
+
+The key rebuild decision was to **replace the obsolete mobile dependency stack without throwing away the product idea**. The modern web and mobile clients now share domain logic instead of maintaining two incompatible matching systems.
+<!-- portfolio-refresh:end -->
+
 Mix N' Match is a combat-sports training network for finding compatible sparring, drilling, pad-work, grappling, and conditioning partners.
 
 The original repository was a React Native 0.63-era app built from a dating template. Its own copy and configuration had already shifted toward finding sparring partners. The modern revival keeps that product direction and now ships as **both a web/PWA client and a fresh mobile client**.
