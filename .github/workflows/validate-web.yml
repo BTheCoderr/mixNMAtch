@@ -20,6 +20,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Shared core syntax
         run: node --check shared/core.js
+      - name: Shared compatibility tests
+        run: npm run test:shared
       - name: Vite config syntax
         run: npm run check
       - name: Production web build
@@ -46,10 +48,18 @@ jobs:
         run: npx expo install --check
       - name: Bundle Android JavaScript
         working-directory: mobile
-        run: npx expo export --platform android --output-dir .expo-export
-      - name: Verify mobile export
+        run: npx expo export --platform android --output-dir .expo-export-android
+      - name: Bundle iOS JavaScript
+        working-directory: mobile
+        run: npx expo export --platform ios --output-dir .expo-export-ios
+      - name: Verify mobile release shell
         run: |
-          test -d mobile/.expo-export
+          test -d mobile/.expo-export-android
+          test -d mobile/.expo-export-ios
           test -s mobile/App.js
           test -s mobile/app.json
-          test -s mobile/metro.config.js
+          test -s mobile/eas.json
+          test -s mobile/assets/icon.png
+          test -s mobile/assets/adaptive-icon.png
+          test -s mobile/assets/splash-icon.png
+          node -e "JSON.parse(require('fs').readFileSync('mobile/app.json','utf8')); JSON.parse(require('fs').readFileSync('mobile/eas.json','utf8'))"
