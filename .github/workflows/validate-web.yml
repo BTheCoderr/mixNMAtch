@@ -16,15 +16,40 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
+      - name: Install web dependencies
         run: npm install --no-audit --no-fund
-      - name: Syntax checks
+      - name: Shared core syntax
+        run: node --check shared/core.js
+      - name: Vite config syntax
         run: npm run check
-      - name: Production build
+      - name: Production web build
         run: npm run build
-      - name: Verify production output
+      - name: Verify web output
         run: |
           test -s dist/index.html
           test -s web/src/App.jsx
-          test -s web/public/manifest.webmanifest
+          test -s shared/core.js
           test -s netlify.toml
+
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+      - name: Install Expo mobile dependencies
+        working-directory: mobile
+        run: npm install --no-audit --no-fund
+      - name: Expo dependency check
+        working-directory: mobile
+        run: npx expo install --check
+      - name: Bundle Android JavaScript
+        working-directory: mobile
+        run: npx expo export --platform android --output-dir .expo-export
+      - name: Verify mobile export
+        run: |
+          test -d mobile/.expo-export
+          test -s mobile/App.js
+          test -s mobile/app.json
+          test -s mobile/metro.config.js
