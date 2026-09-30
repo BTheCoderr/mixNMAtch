@@ -173,13 +173,13 @@ export default function App(){
               {current.compatibility.reasons.map(reason=><View key={reason} style={ui.reason}><Text style={ui.reasonText}>✓ {reason}</Text></View>)}
             </ScrollView>
             <View style={ui.detailChips}>
-              {[current.level,${current.weight}+' lb',current.intensity,current.stance].map(item=><View key={item} style={[ui.softChip,{backgroundColor:c.panel2,borderColor:c.line}]}><Text style={[ui.softChipText,{color:c.muted}]}>{item}</Text></View>)}
+              {[current.level,current.weight+' lb',current.intensity,current.stance].map(item=><View key={item} style={[ui.softChip,{backgroundColor:c.panel2,borderColor:c.line}]}><Text style={[ui.softChipText,{color:c.muted}]}>{item}</Text></View>)}
             </View>
             <Text style={[ui.bio,{color:c.muted}]}>{current.bio}</Text>
             <View style={[ui.infoGrid,{borderColor:c.line}]}>
               <Info label="Goal" value={current.goal} c={c}/>
               <Info label="Available" value={current.availability.join(' · ')} c={c}/>
-              <Info label="Experience" value={${current.yearsTraining}+' yrs · '+current.competition} c={c}/>
+              <Info label="Experience" value={current.yearsTraining+' yrs · '+current.competition} c={c}/>
               <Info label="Rounds" value={current.roundLength+' · '+current.contactLevel} c={c}/>
               <Info label="Gym" value={current.gym} c={c}/>
               <Info label="Gear" value={current.gear} c={c}/>
