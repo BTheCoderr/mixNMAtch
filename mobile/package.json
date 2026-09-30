@@ -7,12 +7,15 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "export:android": "expo export --platform android --output-dir .expo-export"
+    "export:android": "expo export --platform android --output-dir .expo-export",
+    "build:preview": "eas build --profile preview",
+    "build:production": "eas build --profile production"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.17",
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-native": "0.86.3",
+    "@react-native-community/datetimepicker": "9.1.0"
   }
 }

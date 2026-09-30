@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -13,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   availabilities,
   createSession,
@@ -22,15 +24,16 @@ import {
   filterFighters,
   intensityDefinitions,
   levels,
+  reportReasons,
   sessionStatuses,
   sessionTypes,
   styles,
 } from '../shared/core.js';
 
-const STORAGE_KEY='mix-n-match-mobile-v1';
+const STORAGE_KEY='mix-n-match-mobile-v2';
 
 const defaultState={
-  passed:[],matches:[],blocked:[],sessions:[],
+  passed:[],matches:[],blocked:[],reports:[],sessions:[],
   filters:{...defaultFilters},profile:{...defaultProfile},
   onboardingComplete:false,theme:'dark',lastAction:null
 };
@@ -42,12 +45,22 @@ const hydrate=saved=>({
   passed:Array.isArray(saved?.passed)?saved.passed:[],
   matches:Array.isArray(saved?.matches)?saved.matches:[],
   blocked:Array.isArray(saved?.blocked)?saved.blocked:[],
+  reports:Array.isArray(saved?.reports)?saved.reports:[],
   sessions:Array.isArray(saved?.sessions)?saved.sessions:[]
 });
 
 const Chip=({label,active,onPress})=><Pressable onPress={onPress} style={[ui.chip,active&&ui.chipActive]}>
   <Text style={[ui.chipText,active&&ui.chipTextActive]}>{label}</Text>
 </Pressable>;
+
+const formatDate=value=>{
+  const y=value.getFullYear();
+  const m=String(value.getMonth()+1).padStart(2,'0');
+  const d=String(value.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+d;
+};
+
+const formatTime=value=>String(value.getHours()).padStart(2,'0')+':'+String(value.getMinutes()).padStart(2,'0');
 
 export default function App(){
   const [state,setState]=useState(defaultState);
@@ -56,6 +69,9 @@ export default function App(){
   const [sessionOpen,setSessionOpen]=useState(false);
   const [sessionPartner,setSessionPartner]=useState('');
   const [draftSession,setDraftSession]=useState({type:'Technical sparring',date:'',time:'',intensity:'Technical',notes:''});
+  const [pickerMode,setPickerMode]=useState(null);
+  const [whyOpen,setWhyOpen]=useState(null);
+  const [reportOpen,setReportOpen]=useState(null);
 
   useEffect(()=>{
     AsyncStorage.getItem(STORAGE_KEY)
@@ -84,16 +100,19 @@ export default function App(){
     ),
     [state.matches,state.profile]
   );
+  const blockedProfiles=fighters.filter(f=>state.blocked.includes(f.id));
   const completed=state.sessions.filter(s=>s.status==='completed');
 
   const connect=fighter=>{
     if(!fighter)return;
     setState(p=>({...p,matches:[fighter.id,...p.matches.filter(id=>id!==fighter.id)],lastAction:{type:'match',id:fighter.id}}));
   };
+
   const pass=fighter=>{
     if(!fighter)return;
     setState(p=>({...p,passed:[...p.passed,fighter.id],lastAction:{type:'pass',id:fighter.id}}));
   };
+
   const undo=()=>{
     const last=state.lastAction;
     if(!last)return;
@@ -104,23 +123,72 @@ export default function App(){
       lastAction:null
     }));
   };
+
   const block=id=>setState(p=>({
-    ...p,matches:p.matches.filter(item=>item!==id),passed:p.passed.filter(item=>item!==id),
+    ...p,
+    matches:p.matches.filter(item=>item!==id),
+    passed:p.passed.filter(item=>item!==id),
     blocked:[...new Set([...p.blocked,id])]
   }));
+
+  const unblock=id=>setState(p=>({...p,blocked:p.blocked.filter(item=>item!==id)}));
+
+  const submitReport=(fighter,reason)=>{
+    setState(p=>({
+      ...p,
+      matches:p.matches.filter(item=>item!==fighter.id),
+      passed:p.passed.filter(item=>item!==fighter.id),
+      blocked:[...new Set([...p.blocked,fighter.id])],
+      reports:[{
+        id:Date.now().toString(36),
+        fighterId:fighter.id,
+        fighterName:fighter.name,
+        reason,
+        createdAt:new Date().toISOString()
+      },...p.reports]
+    }));
+    setReportOpen(null);
+    Alert.alert('Saved locally','This prototype stores the report on this device and hides the profile. A production backend would send it to moderation.');
+  };
 
   const openPlanner=id=>{
     setSessionPartner(id||'');
     setDraftSession({type:'Technical sparring',date:'',time:'',intensity:'Technical',notes:''});
+    setPickerMode(null);
     setSessionOpen(true);
   };
 
   const addSession=()=>{
+    if(!draftSession.date){
+      Alert.alert('Choose a date','Pick a training date before adding the session.');
+      return;
+    }
     const partner=fighters.find(f=>f.id===sessionPartner);
     const next=createSession({partner,...draftSession});
     setState(p=>({...p,sessions:[next,...p.sessions]}));
     setSessionOpen(false);
+    setPickerMode(null);
     setTab('sessions');
+  };
+
+  const pickerValue=()=>{
+    const base=new Date();
+    if(draftSession.date){
+      const parts=draftSession.date.split('-').map(Number);
+      base.setFullYear(parts[0],parts[1]-1,parts[2]);
+    }
+    if(draftSession.time){
+      const parts=draftSession.time.split(':').map(Number);
+      base.setHours(parts[0],parts[1],0,0);
+    }
+    return base;
+  };
+
+  const handlePickerChange=(event,value)=>{
+    if(Platform.OS==='android')setPickerMode(null);
+    if(!value||event?.type==='dismissed')return;
+    if(pickerMode==='date')setDraftSession(p=>({...p,date:formatDate(value)}));
+    if(pickerMode==='time')setDraftSession(p=>({...p,time:formatTime(value)}));
   };
 
   const setSessionStatus=(id,status)=>setState(p=>({
@@ -160,7 +228,7 @@ export default function App(){
         {current?<View style={[ui.fighterCard,{backgroundColor:c.panel,borderColor:c.line}]}>
           <View style={ui.fighterHero}>
             <View style={ui.avatarLarge}><Text style={ui.avatarText}>{current.initials}</Text></View>
-            <View style={ui.matchBadge}><Text style={ui.matchBadgeText}>{current.compatibility.score}% MATCH</Text></View>
+            <Pressable style={ui.matchBadge} onPress={()=>setWhyOpen(current)}><Text style={ui.matchBadgeText}>{current.compatibility.score}% MATCH · WHY?</Text></Pressable>
             <View style={ui.fighterTitleWrap}>
               <Text style={ui.fighterLocation}>{current.city} · {current.distance} mi {current.verified?'· ✓ verified':''}</Text>
               <Text style={ui.fighterName}>{current.name}, {current.age}</Text>
@@ -206,10 +274,17 @@ export default function App(){
         <Text style={ui.eyebrow}>YOUR NETWORK</Text><Text style={[ui.pageTitle,{color:c.text}]}>Training matches</Text>
         <Text style={[ui.copy,{color:c.muted}]}>Scores automatically update when your training profile changes.</Text>
         {matches.length?matches.map(f=><View key={f.id} style={[ui.listCard,{backgroundColor:c.panel,borderColor:c.line}]}>
-          <View style={ui.matchHead}><View style={ui.avatar}><Text style={ui.avatarSmallText}>{f.initials}</Text></View><View style={ui.flex}><Text style={[ui.cardTitle,{color:c.text}]}>{f.name}</Text><Text style={[ui.cardMeta,{color:c.muted}]}>{f.style} · {f.weight} lb · {f.distance} mi</Text></View><Text style={ui.score}>{f.compatibility.score}%</Text></View>
+          <View style={ui.matchHead}><View style={ui.avatar}><Text style={ui.avatarSmallText}>{f.initials}</Text></View><View style={ui.flex}><Text style={[ui.cardTitle,{color:c.text}]}>{f.name}</Text><Text style={[ui.cardMeta,{color:c.muted}]}>{f.style} · {f.weight} lb · {f.distance} mi</Text></View><Pressable onPress={()=>setWhyOpen(f)}><Text style={ui.score}>{f.compatibility.score}%</Text></Pressable></View>
           <View style={ui.detailChips}>{f.compatibility.reasons.slice(0,3).map(reason=><View key={reason} style={ui.reason}><Text style={ui.reasonText}>✓ {reason}</Text></View>)}</View>
           <Text style={[ui.bio,{color:c.muted}]}>{f.bio}</Text>
-          <View style={ui.buttonRow}><Pressable style={[ui.primary,ui.flex]} onPress={()=>openPlanner(f.id)}><Text style={ui.primaryText}>Plan session</Text></Pressable><Pressable style={[ui.secondary,{borderColor:c.line}]} onPress={()=>block(f.id)}><Text style={[ui.secondaryText,{color:c.muted}]}>Hide</Text></Pressable></View>
+          <View style={ui.buttonRow}>
+            <Pressable style={[ui.primary,ui.flex]} onPress={()=>openPlanner(f.id)}><Text style={ui.primaryText}>Plan session</Text></Pressable>
+            <Pressable style={[ui.secondary,{borderColor:c.line}]} onPress={()=>setWhyOpen(f)}><Text style={[ui.secondaryText,{color:c.muted}]}>Why</Text></Pressable>
+          </View>
+          <View style={ui.moderationRow}>
+            <Pressable onPress={()=>block(f.id)}><Text style={[ui.linkText,{color:c.muted}]}>Hide profile</Text></Pressable>
+            <Pressable onPress={()=>setReportOpen(f)}><Text style={ui.dangerText}>Report</Text></Pressable>
+          </View>
         </View>):<Empty title="No matches yet" copy="Connect with someone from Discover and they’ll appear here." c={c}/>}
       </ScrollView>}
 
@@ -230,7 +305,7 @@ export default function App(){
 
       {tab==='profile'&&<ScrollView contentContainerStyle={ui.page} keyboardShouldPersistTaps="handled">
         <Text style={ui.eyebrow}>YOUR TRAINING PROFILE</Text><Text style={[ui.pageTitle,{color:c.text}]}>Tune the match engine</Text>
-        <Text style={[ui.copy,{color:c.muted}]}>Profile data stays on this device in the current local-first build.</Text>
+        <Text style={[ui.copy,{color:c.muted}]}>Profile and moderation data stay on this device in the current local-first build.</Text>
         <View style={[ui.listCard,{backgroundColor:c.panel,borderColor:c.line}]}>
           <Field label="Name" value={state.profile.name} onChangeText={value=>setState(p=>({...p,profile:{...p.profile,name:value}}))} c={c}/>
           <Field label="Weight (lb)" keyboardType="numeric" value={String(state.profile.weight)} onChangeText={value=>setState(p=>({...p,profile:{...p.profile,weight:Number(value)||0}}))} c={c}/>
@@ -247,10 +322,22 @@ export default function App(){
           <Text style={[ui.fieldLabel,{color:c.muted}]}>PREFERRED INTENSITY</Text>
           <View style={ui.wrap}>{Object.keys(intensityDefinitions).map(item=><Chip key={item} label={item} active={state.profile.intensity===item} onPress={()=>setState(p=>({...p,profile:{...p.profile,intensity:item}}))}/>)}</View>
         </View>
+
         <View style={[ui.safety,{backgroundColor:c.panel,borderColor:c.line}]}>
           <View style={ui.switchRow}><View style={ui.flex}><Text style={[ui.cardTitle,{color:c.text}]}>Gym-verified profiles only</Text><Text style={[ui.cardMeta,{color:c.muted}]}>Filter discovery to demo profiles marked as gym verified.</Text></View><Switch value={state.filters.verifiedOnly} onValueChange={value=>setState(p=>({...p,filters:{...p.filters,verifiedOnly:value}}))} trackColor={{true:'#f44b2e'}}/></View>
         </View>
-        <Pressable onPress={()=>Alert.alert('Reset local data?','This clears matches, sessions, filters, and your local profile.',[{text:'Cancel',style:'cancel'},{text:'Reset',style:'destructive',onPress:async()=>{await AsyncStorage.removeItem(STORAGE_KEY);setState(defaultState);setTab('discover')}}])} style={[ui.secondary,{borderColor:c.line,alignSelf:'stretch'}]}><Text style={[ui.secondaryText,{color:c.muted}]}>Reset local data</Text></Pressable>
+
+        <View style={[ui.safety,{backgroundColor:c.panel,borderColor:c.line}]}>
+          <Text style={ui.eyebrow}>SAFETY & MODERATION</Text>
+          <Text style={[ui.sectionTitle,{color:c.text}]}>Hidden profiles</Text>
+          <Text style={[ui.cardMeta,{color:c.muted}]}>Reports saved locally: {state.reports.length}. Hidden profiles never appear in your discovery deck until you restore them.</Text>
+          {blockedProfiles.length?blockedProfiles.map(f=><View key={f.id} style={[ui.blockedRow,{borderColor:c.line}]}>
+            <View style={ui.flex}><Text style={[ui.cardTitle,{color:c.text}]}>{f.name}</Text><Text style={[ui.cardMeta,{color:c.muted}]}>{f.style} · {f.city}</Text></View>
+            <Pressable style={[ui.secondary,{borderColor:c.line}]} onPress={()=>unblock(f.id)}><Text style={[ui.secondaryText,{color:c.text}]}>Restore</Text></Pressable>
+          </View>):<Text style={[ui.cardMeta,{color:c.muted,marginTop:10}]}>No hidden profiles.</Text>}
+        </View>
+
+        <Pressable onPress={()=>Alert.alert('Reset local data?','This clears matches, sessions, reports, filters, and your local profile.',[{text:'Cancel',style:'cancel'},{text:'Reset',style:'destructive',onPress:async()=>{await AsyncStorage.removeItem(STORAGE_KEY);setState(defaultState);setTab('discover')}}])} style={[ui.secondary,{borderColor:c.line,alignSelf:'stretch',marginTop:14}]}><Text style={[ui.secondaryText,{color:c.muted}]}>Reset local data</Text></Pressable>
       </ScrollView>}
     </View>
 
@@ -289,10 +376,42 @@ export default function App(){
           <View style={ui.wrap}>{sessionTypes.map(item=><Chip key={item} label={item} active={draftSession.type===item} onPress={()=>setDraftSession(p=>({...p,type:item}))}/>)}</View>
           <Text style={[ui.fieldLabel,{color:c.muted}]}>INTENSITY</Text>
           <View style={ui.wrap}>{Object.keys(intensityDefinitions).map(item=><Chip key={item} label={item} active={draftSession.intensity===item} onPress={()=>setDraftSession(p=>({...p,intensity:item}))}/>)}</View>
-          <Field label="DATE (YYYY-MM-DD)" value={draftSession.date} onChangeText={value=>setDraftSession(p=>({...p,date:value}))} c={c}/>
-          <Field label="TIME" value={draftSession.time} onChangeText={value=>setDraftSession(p=>({...p,time:value}))} c={c}/>
+
+          <Text style={[ui.fieldLabel,{color:c.muted}]}>DATE & TIME</Text>
+          <View style={ui.buttonRow}>
+            <Pressable style={[ui.pickerButton,{backgroundColor:c.panel2,borderColor:c.line}]} onPress={()=>setPickerMode('date')}><Text style={[ui.pickerLabel,{color:c.muted}]}>DATE</Text><Text style={[ui.pickerValue,{color:c.text}]}>{draftSession.date||'Choose date'}</Text></Pressable>
+            <Pressable style={[ui.pickerButton,{backgroundColor:c.panel2,borderColor:c.line}]} onPress={()=>setPickerMode('time')}><Text style={[ui.pickerLabel,{color:c.muted}]}>TIME</Text><Text style={[ui.pickerValue,{color:c.text}]}>{draftSession.time||'Choose time'}</Text></Pressable>
+          </View>
+          {pickerMode&&<View style={[ui.pickerPanel,{backgroundColor:c.panel2,borderColor:c.line}]}>
+            <DateTimePicker value={pickerValue()} mode={pickerMode} display="default" onChange={handlePickerChange}/>
+            {Platform.OS==='ios'&&<Pressable style={ui.primary} onPress={()=>setPickerMode(null)}><Text style={ui.primaryText}>Done</Text></Pressable>}
+          </View>}
+
           <Field label="NOTES" multiline value={draftSession.notes} onChangeText={value=>setDraftSession(p=>({...p,notes:value}))} c={c}/>
           <Pressable style={[ui.primary,{alignSelf:'stretch',marginTop:10}]} onPress={addSession}><Text style={ui.primaryText}>Add proposed session</Text></Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+
+    <Modal visible={!!whyOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={()=>setWhyOpen(null)}>
+      <SafeAreaView style={[ui.safe,{backgroundColor:c.bg}]}>
+        <ScrollView contentContainerStyle={ui.page}>
+          <View style={ui.modalHead}><View><Text style={ui.eyebrow}>WHY WE MATCHED</Text><Text style={[ui.pageTitle,{color:c.text}]}>{whyOpen?.name} · {whyOpen?.compatibility.score}%</Text></View><Pressable onPress={()=>setWhyOpen(null)} style={[ui.roundButton,{backgroundColor:c.panel,borderColor:c.line}]}><Text style={{color:c.text,fontSize:20}}>×</Text></Pressable></View>
+          <Text style={[ui.copy,{color:c.muted}]}>The score is a training-compatibility aid, not a safety guarantee. Confirm pace, rules, gear, and supervision yourself.</Text>
+          {whyOpen?.compatibility.breakdown.map(item=><View key={item.key} style={[ui.breakdownRow,{backgroundColor:c.panel,borderColor:c.line}]}>
+            <View style={ui.flex}><Text style={[ui.cardTitle,{color:c.text}]}>{item.label}</Text><Text style={[ui.cardMeta,{color:c.muted}]}>{item.detail}</Text></View>
+            <Text style={ui.score}>{item.points}/{item.max}</Text>
+          </View>)}
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+
+    <Modal visible={!!reportOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={()=>setReportOpen(null)}>
+      <SafeAreaView style={[ui.safe,{backgroundColor:c.bg}]}>
+        <ScrollView contentContainerStyle={ui.page}>
+          <View style={ui.modalHead}><View><Text style={ui.eyebrow}>LOCAL SAFETY REPORT</Text><Text style={[ui.pageTitle,{color:c.text}]}>Report {reportOpen?.name}</Text></View><Pressable onPress={()=>setReportOpen(null)} style={[ui.roundButton,{backgroundColor:c.panel,borderColor:c.line}]}><Text style={{color:c.text,fontSize:20}}>×</Text></Pressable></View>
+          <Text style={[ui.copy,{color:c.muted}]}>Choose a reason. In this local-first prototype the report is stored only on this device and the profile is hidden.</Text>
+          {reportReasons.map(reason=><Pressable key={reason} style={[ui.reportReason,{backgroundColor:c.panel,borderColor:c.line}]} onPress={()=>submitReport(reportOpen,reason)}><Text style={[ui.cardTitle,{color:c.text}]}>{reason}</Text><Text style={[ui.cardMeta,{color:c.muted}]}>Save locally and hide profile</Text></Pressable>)}
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -302,12 +421,15 @@ export default function App(){
 function Info({label,value,c}){
   return <View style={[ui.infoCell,{borderColor:c.line}]}><Text style={[ui.infoLabel,{color:c.muted}]}>{label.toUpperCase()}</Text><Text style={[ui.infoValue,{color:c.text}]}>{value}</Text></View>;
 }
+
 function Safety({number,title,text,c}){
   return <View style={ui.safetyRow}><View style={ui.safetyNumber}><Text style={ui.safetyNumberText}>{number}</Text></View><View style={ui.flex}><Text style={[ui.cardTitle,{color:c.text}]}>{title}</Text><Text style={[ui.cardMeta,{color:c.muted}]}>{text}</Text></View></View>;
 }
+
 function Field({label,c,...props}){
   return <View style={ui.field}><Text style={[ui.fieldLabel,{color:c.muted}]}>{label}</Text><TextInput {...props} placeholderTextColor={c.muted} style={[ui.input,{color:c.text,backgroundColor:c.panel2,borderColor:c.line},props.multiline&&ui.multiline]}/></View>;
 }
+
 function Empty({title,copy,c}){
   return <View style={[ui.empty,{backgroundColor:c.panel,borderColor:c.line}]}><Text style={ui.emptyIcon}>＋</Text><Text style={[ui.emptyTitle,{color:c.text}]}>{title}</Text><Text style={[ui.copy,{color:c.muted,textAlign:'center'}]}>{copy}</Text></View>;
 }
@@ -343,9 +465,13 @@ const ui=StyleSheet.create({
   cardTitle:{fontSize:14,fontWeight:'900'},cardMeta:{fontSize:9,lineHeight:14,marginTop:3},score:{fontSize:14,fontWeight:'900',color:'#57d69a'},buttonRow:{flexDirection:'row',gap:8,marginTop:8},
   primary:{minHeight:44,borderRadius:12,backgroundColor:'#f44b2e',alignItems:'center',justifyContent:'center',paddingHorizontal:14},primaryText:{fontSize:10,fontWeight:'900',color:'#fff'},
   secondary:{minHeight:44,borderRadius:12,borderWidth:1,alignItems:'center',justifyContent:'center',paddingHorizontal:14},secondaryText:{fontSize:10,fontWeight:'800'},
+  moderationRow:{flexDirection:'row',justifyContent:'space-between',paddingTop:12},linkText:{fontSize:9,fontWeight:'800'},dangerText:{fontSize:9,fontWeight:'900',color:'#ff7180'},
   empty:{borderRadius:20,borderWidth:1,padding:32,alignItems:'center',marginTop:12},emptyIcon:{fontSize:38,color:'#57d69a'},emptyTitle:{fontSize:20,fontWeight:'900',marginTop:10},
   field:{marginTop:13},fieldLabel:{fontSize:8,fontWeight:'900',letterSpacing:.7,marginBottom:6},input:{minHeight:46,borderRadius:11,borderWidth:1,paddingHorizontal:12,fontSize:12},multiline:{minHeight:96,paddingTop:12,textAlignVertical:'top'},
   wrap:{flexDirection:'row',flexWrap:'wrap',gap:7,marginBottom:6},switchRow:{flexDirection:'row',alignItems:'center',gap:12},
   tabbar:{height:66,borderTopWidth:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',justifyContent:'center'},tabIcon:{fontSize:18},tabLabel:{fontSize:8,fontWeight:'800',marginTop:2},
   onboarding:{padding:22,paddingTop:38,alignItems:'center'},modalHead:{flexDirection:'row',alignItems:'flex-start',justifyContent:'space-between'},
+  pickerButton:{flex:1,minHeight:62,borderWidth:1,borderRadius:12,padding:10,justifyContent:'center'},pickerLabel:{fontSize:7,fontWeight:'900',letterSpacing:.7},pickerValue:{fontSize:12,fontWeight:'800',marginTop:4},
+  pickerPanel:{borderWidth:1,borderRadius:16,padding:10,marginTop:10},breakdownRow:{borderWidth:1,borderRadius:14,padding:13,marginTop:9,flexDirection:'row',alignItems:'center',gap:10},
+  reportReason:{borderWidth:1,borderRadius:14,padding:14,marginTop:9},blockedRow:{borderTopWidth:1,paddingTop:12,marginTop:12,flexDirection:'row',alignItems:'center',gap:10},
 });

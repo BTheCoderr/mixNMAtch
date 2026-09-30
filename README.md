@@ -111,7 +111,7 @@ npm run ios
 npm run android
 ```
 
-The mobile app stores local state in AsyncStorage under `mix-n-match-mobile-v1`.
+The mobile app stores local state in AsyncStorage under `mix-n-match-mobile-v2`.
 
 The mobile implementation is intentionally new. It does not depend on the obsolete Firebase/Twilio/IAP/navigation packages from the archived native app.
 
@@ -143,6 +143,35 @@ A hard-coded legacy in-app-purchase shared secret was removed during the first r
 GitHub Actions now validates both product surfaces:
 
 1. clean Node 22 web install + Vite production build
-2. shared-core syntax
-3. clean Expo mobile install + dependency check
+2. shared-core syntax + automated compatibility tests
+3. clean Expo mobile install + dependency compatibility check
 4. Android JavaScript export through Expo/Metro
+5. iOS JavaScript export through Expo/Metro
+6. release-config and mobile asset checks
+
+## Release-readiness pass
+
+The current release shell now also includes:
+
+- iOS bundle identifier: `com.bthecoderr.mixnmatch`
+- Android package: `com.bthecoderr.mixnmatch`
+- dedicated app icon, adaptive Android icon, and splash asset
+- EAS `development`, `preview`, and `production` build profiles
+- native mobile date/time selection for session planning
+- detailed "Why we matched" score breakdowns on web and mobile
+- local report reasons and blocked-profile management
+- shared match-engine tests
+- CI bundling checks for both Android and iOS JavaScript
+
+The local report flow is intentionally transparent: without a production backend, reports are saved only on the user's device and hide the selected profile locally. When a real backend is added, this UI can be connected to a moderation queue instead of pretending reports are being transmitted today.
+
+### EAS builds
+
+From `mobile/` after authenticating with Expo/EAS:
+
+```bash
+npm run build:preview
+npm run build:production
+```
+
+No Expo project ID, App Store credentials, Google Play credentials, or signing secrets are committed to the repository.

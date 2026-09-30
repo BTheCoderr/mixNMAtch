@@ -2,6 +2,7 @@ export const styles = ['All','Boxing','Muay Thai','Kickboxing','Brazilian Jiu-Ji
 export const levels = ['All','Beginner','Intermediate','Advanced'];
 export const availabilities = ['Early mornings','Daytime','Weeknights','Weekends'];
 export const sessionTypes = ['Technical sparring','Drilling','Pad work','Open mat','Wrestling rounds','Conditioning'];
+export const reportReasons = ['Unsafe intensity','Disrespectful behavior','Misrepresented experience','Harassment','Spam / fake profile','Other'];
 
 export const intensityDefinitions = {
   Technical: 'Timing, defense, positioning, and clean technique. No power exchanges.',
@@ -121,46 +122,84 @@ const intensityFamily = value => {
 export function calculateCompatibility(fighter, profile, maxDistance=25){
   let score=0;
   const reasons=[];
+  const breakdown=[];
+
+  const push=(key,label,points,max,detail)=>{
+    score+=points;
+    breakdown.push({key,label,points:Number(points.toFixed(1)),max,detail});
+  };
 
   const weightGap=Math.abs(Number(fighter.weight)-Number(profile.weight));
   const weightScore=Math.max(0,24-Math.max(0,weightGap-5)*1.2);
-  score+=weightScore;
+  push('weight','Weight compatibility',weightScore,24,weightGap===0?'Same listed weight':`${weightGap} lb apart`);
   if(weightGap<=10) reasons.push(`Within ${weightGap} lb`);
 
   const directStyle=fighter.style===profile.style;
   const crossStyle=fighter.cross===profile.style || fighter.style===profile.secondaryStyle || fighter.cross===profile.secondaryStyle;
-  if(directStyle){score+=20;reasons.push(`Both train ${profile.style}`);}
-  else if(crossStyle){score+=15;reasons.push('Complementary styles');}
-  else score+=7;
+  if(directStyle){
+    push('style','Style compatibility',20,20,`Both train ${profile.style}`);
+    reasons.push(`Both train ${profile.style}`);
+  } else if(crossStyle){
+    push('style','Style compatibility',15,20,'Complementary primary / secondary styles');
+    reasons.push('Complementary styles');
+  } else {
+    push('style','Style compatibility',7,20,'Different styles can still provide useful cross-training');
+  }
 
   const levelGap=Math.abs(levelIndex(fighter.level)-levelIndex(profile.level));
-  if(levelGap===0){score+=16;reasons.push('Same experience level');}
-  else if(levelGap===1){score+=11;reasons.push('Compatible experience');}
-  else score+=4;
+  if(levelGap===0){
+    push('experience','Experience level',16,16,'Same experience level');
+    reasons.push('Same experience level');
+  } else if(levelGap===1){
+    push('experience','Experience level',11,16,'One experience tier apart');
+    reasons.push('Compatible experience');
+  } else {
+    push('experience','Experience level',4,16,'Large experience gap — set expectations before live rounds');
+  }
 
   const sharedAvailability=fighter.availability.filter(slot=>profile.availability?.includes(slot));
-  if(sharedAvailability.length){score+=14;reasons.push(`Both free ${sharedAvailability[0].toLowerCase()}`);}
+  if(sharedAvailability.length){
+    push('availability','Availability',14,14,`Shared window: ${sharedAvailability.join(', ')}`);
+    reasons.push(`Both free ${sharedAvailability[0].toLowerCase()}`);
+  } else {
+    push('availability','Availability',0,14,'No shared preferred training window listed');
+  }
 
   const intensityGap=Math.abs(intensityFamily(fighter.intensity)-intensityFamily(profile.intensity));
-  if(intensityGap===0){score+=12;reasons.push('Same preferred pace');}
-  else if(intensityGap===1) score+=8;
-  else score+=2;
+  if(intensityGap===0){
+    push('intensity','Preferred intensity',12,12,`Both prefer ${fighter.intensity}`);
+    reasons.push('Same preferred pace');
+  } else if(intensityGap===1) {
+    push('intensity','Preferred intensity',8,12,`Close pace preferences: ${profile.intensity} / ${fighter.intensity}`);
+  } else {
+    push('intensity','Preferred intensity',2,12,`Different pace preferences: ${profile.intensity} / ${fighter.intensity}`);
+  }
 
-  if(goalFamily(fighter.goal)===goalFamily(profile.goal)){score+=8;reasons.push('Training goals line up');}
-  else score+=3;
+  if(goalFamily(fighter.goal)===goalFamily(profile.goal)){
+    push('goal','Training goal',8,8,'Training goals are in the same family');
+    reasons.push('Training goals line up');
+  } else {
+    push('goal','Training goal',3,8,`Different goals: ${profile.goal} / ${fighter.goal}`);
+  }
 
   const distanceScore=Math.max(0,6-(fighter.distance/Math.max(1,maxDistance))*6);
-  score+=distanceScore;
+  push('distance','Distance',distanceScore,6,`${fighter.distance} miles away within a ${maxDistance}-mile radius`);
   if(fighter.distance<=5) reasons.push(`${fighter.distance} miles away`);
 
-  if(fighter.verified){score+=2;reasons.push('Gym verified');}
+  if(fighter.verified){
+    push('verification','Gym verification',2,2,'Profile is marked gym verified');
+    reasons.push('Gym verified');
+  } else {
+    push('verification','Gym verification',0,2,'Profile is not gym verified in this demo dataset');
+  }
 
   return {
     score:Math.max(45,Math.min(99,Math.round(score))),
-    reasons:reasons.slice(0,4)
+    rawScore:Number(score.toFixed(1)),
+    reasons:reasons.slice(0,4),
+    breakdown
   };
 }
-
 export function filterFighters(list, filters, profile, excludedIds=[]){
   return list
     .filter(f=>!excludedIds.includes(f.id))

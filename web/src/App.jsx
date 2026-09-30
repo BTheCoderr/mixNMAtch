@@ -8,6 +8,7 @@ import {
   filterFighters,
   intensityDefinitions,
   levels,
+  reportReasons,
   sessionStatuses,
   sessionTypes,
   styles,
@@ -16,7 +17,7 @@ import {
 const STORAGE_KEY = 'mix-n-match-v3';
 
 const defaultState = {
-  passed:[], matches:[], blocked:[], sessions:[], theme:'dark',
+  passed:[], matches:[], blocked:[], reports:[], sessions:[], theme:'dark',
   filters:{...defaultFilters}, profile:{...defaultProfile},
   onboardingComplete:false, lastAction:null
 };
@@ -31,6 +32,7 @@ function loadState(){
       passed:Array.isArray(saved.passed)?saved.passed:[],
       matches:Array.isArray(saved.matches)?saved.matches:[],
       blocked:Array.isArray(saved.blocked)?saved.blocked:[],
+      reports:Array.isArray(saved.reports)?saved.reports:[],
       sessions:Array.isArray(saved.sessions)?saved.sessions:[]
     };
   } catch { return defaultState; }
@@ -44,6 +46,8 @@ function App(){
   const [plannerPartner,setPlannerPartner]=useState('');
   const [toast,setToast]=useState('');
   const [installPrompt,setInstallPrompt]=useState(null);
+  const [whyOpen,setWhyOpen]=useState(null);
+  const [reportOpen,setReportOpen]=useState(null);
 
   useEffect(()=>localStorage.setItem(STORAGE_KEY,JSON.stringify(state)),[state]);
   useEffect(()=>{document.documentElement.dataset.theme=state.theme},[state.theme]);
@@ -69,6 +73,7 @@ function App(){
   );
   const completedSessions=state.sessions.filter(s=>s.status==='completed');
   const repeatPartners=new Set(completedSessions.map(s=>s.partnerId).filter(Boolean)).size;
+  const blockedProfiles=fighters.filter(f=>state.blocked.includes(f.id));
 
   const flash=msg=>{setToast(msg);setTimeout(()=>setToast(''),1800)};
 
@@ -131,6 +136,29 @@ function App(){
       blocked:[...new Set([...prev.blocked,id])]
     }));
     flash('Hidden from your local deck');
+  };
+
+  const unblockPartner=id=>{
+    setState(prev=>({...prev,blocked:prev.blocked.filter(item=>item!==id)}));
+    flash('Profile restored');
+  };
+
+  const submitReport=(fighter,reason)=>{
+    setState(prev=>({
+      ...prev,
+      matches:prev.matches.filter(item=>item!==fighter.id),
+      passed:prev.passed.filter(item=>item!==fighter.id),
+      blocked:[...new Set([...prev.blocked,fighter.id])],
+      reports:[{
+        id:Date.now().toString(36),
+        fighterId:fighter.id,
+        fighterName:fighter.name,
+        reason,
+        createdAt:new Date().toISOString()
+      },...prev.reports]
+    }));
+    setReportOpen(null);
+    flash('Report saved locally and profile hidden');
   };
 
   const openPlanner=id=>{setPlannerPartner(id||'');setPlannerOpen(true)};
@@ -203,7 +231,7 @@ function App(){
               <div className="fighter-visual">
                 <div className="avatar-xl">{current.initials}</div>
                 <div className="visual-badges">
-                  <span className="compatibility">{current.compatibility.score}% match</span>
+                  <button className="compatibility score-button" onClick={()=>setWhyOpen(current)}>{current.compatibility.score}% match · why?</button>
                   <span>{current.distance} mi away</span>
                 </div>
                 <div className="fighter-overlay">
@@ -264,12 +292,12 @@ function App(){
       {tab==='matches'&&<section className="section-page">
         <div className="section-head"><div><span className="eyebrow">YOUR NETWORK</span><h1>Training matches</h1><p>Compatibility is recalculated whenever you update your profile.</p></div><button className="primary-button" onClick={()=>setTab('discover')}>Find partners</button></div>
         {matchProfiles.length ? <div className="match-grid">{matchProfiles.map(f=><article className="match-card" key={f.id}>
-          <div className="match-top"><div className="avatar">{f.initials}</div><div><h3>{f.name}</h3><p>{f.city} · {f.distance} mi</p></div><span className="score-ring">{f.compatibility.score}%</span></div>
+          <div className="match-top"><div className="avatar">{f.initials}</div><div><h3>{f.name}</h3><p>{f.city} · {f.distance} mi</p></div><button className="score-ring score-button" onClick={()=>setWhyOpen(f)}>{f.compatibility.score}%</button></div>
           <div className="match-reasons compact">{f.compatibility.reasons.slice(0,2).map(reason=><span key={reason}>✓ {reason}</span>)}</div>
           <div className="pill-row"><span>{f.style}</span><span>{f.level}</span><span>{f.weight} lb</span></div>
           <p>{f.bio}</p>
-          <div className="match-actions"><button className="primary-button" onClick={()=>openPlanner(f.id)}>Plan session</button><button className="secondary-button" onClick={()=>removeMatch(f.id)}>Remove</button></div>
-          <button className="quiet-danger" onClick={()=>blockPartner(f.id)}>Hide this profile from my device</button>
+          <div className="match-actions"><button className="primary-button" onClick={()=>openPlanner(f.id)}>Plan session</button><button className="secondary-button" onClick={()=>setWhyOpen(f)}>Why matched</button></div>
+          <div className="moderation-actions"><button onClick={()=>removeMatch(f.id)}>Remove match</button><button onClick={()=>blockPartner(f.id)}>Hide profile</button><button className="danger-link" onClick={()=>setReportOpen(f)}>Report</button></div>
         </article>)}</div>:
         <div className="empty-page"><span>＋</span><h2>No matches yet</h2><p>Connect with compatible training partners from Discover.</p><button className="primary-button" onClick={()=>setTab('discover')}>Start discovering</button></div>}
       </section>}
@@ -325,6 +353,10 @@ function App(){
             <div className="full form-actions"><button className="primary-button">Save profile</button><button type="button" className="secondary-button" onClick={()=>{localStorage.removeItem(STORAGE_KEY);setState({...defaultState,filters:{...defaultFilters},profile:{...defaultProfile}});flash('Local data reset')}}>Reset local data</button></div>
           </form>
         </div>
+        <section className="moderation-panel">
+          <div><span className="eyebrow">SAFETY & MODERATION</span><h2>Hidden profiles</h2><p>Reports saved locally: {state.reports.length}. Hidden profiles stay out of discovery until you restore them.</p></div>
+          {blockedProfiles.length?<div className="blocked-list">{blockedProfiles.map(f=><div className="blocked-row" key={f.id}><div><strong>{f.name}</strong><span>{f.style} · {f.city}</span></div><button className="secondary-button" onClick={()=>unblockPartner(f.id)}>Restore</button></div>)}</div>:<p className="empty-inline">No hidden profiles.</p>}
+        </section>
       </section>}
     </main>
 
@@ -364,6 +396,22 @@ function App(){
           <label className="checkbox-row"><input type="checkbox" checked={state.filters.verifiedOnly} onChange={e=>setState(p=>({...p,filters:{...p.filters,verifiedOnly:e.target.checked}}))}/><span>Gym-verified profiles only</span></label>
         </div>
         <button className="primary-button wide" onClick={()=>setFilterOpen(false)}>Show {filtered.length} partners</button>
+      </section>
+    </div>}
+
+    {whyOpen&&<div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&setWhyOpen(null)}>
+      <section className="modal score-modal">
+        <div className="modal-head"><div><span className="eyebrow">WHY WE MATCHED</span><h2>{whyOpen.name} · {whyOpen.compatibility.score}%</h2></div><button className="icon-button" onClick={()=>setWhyOpen(null)}>×</button></div>
+        <p className="modal-copy">This is a training-compatibility aid, not a safety guarantee. Confirm pace, rules, gear, and supervision yourself.</p>
+        <div className="score-breakdown">{whyOpen.compatibility.breakdown.map(item=><div className="breakdown-row" key={item.key}><div><strong>{item.label}</strong><span>{item.detail}</span></div><b>{item.points}/{item.max}</b></div>)}</div>
+      </section>
+    </div>}
+
+    {reportOpen&&<div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&setReportOpen(null)}>
+      <section className="modal">
+        <div className="modal-head"><div><span className="eyebrow">LOCAL SAFETY REPORT</span><h2>Report {reportOpen.name}</h2></div><button className="icon-button" onClick={()=>setReportOpen(null)}>×</button></div>
+        <p className="modal-copy">Choose a reason. This local-first prototype stores the report only on this device and hides the profile.</p>
+        <div className="report-reasons">{reportReasons.map(reason=><button key={reason} onClick={()=>submitReport(reportOpen,reason)}><strong>{reason}</strong><span>Save locally and hide profile</span></button>)}</div>
       </section>
     </div>}
 

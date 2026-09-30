@@ -7,7 +7,8 @@
     "dev": "vite --config vite.config.js",
     "build": "vite build --config vite.config.js",
     "preview": "vite preview --config vite.config.js",
-    "check": "node --check vite.config.js"
+    "check": "node --check vite.config.js",
+    "test:shared": "node --test shared/core.test.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.1.1",
