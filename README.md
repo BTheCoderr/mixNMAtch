@@ -1,92 +1,142 @@
 # Mix N' Match
 
-A modern revival of the original Mix N' Match / Boxeo React Native project.
+Mix N' Match is a combat-sports training network for finding compatible sparring, drilling, pad-work, grappling, and conditioning partners.
 
-The original repository started from a dating-app template, but its product direction had already shifted toward **finding combat-sports sparring and training partners**. This revival keeps that idea and removes the dating-template dependency from the primary product experience.
+The original repository was a React Native 0.63-era app built from a dating template. Its own copy and configuration had already shifted toward finding sparring partners. The modern revival keeps that product direction and now ships as **both a web/PWA client and a fresh mobile client**.
 
-## Current web app
+## Architecture
 
-The production-ready app lives in `web/` and builds with Vite.
+```
+shared/
+  core.js              # fighter model, demo data, compatibility engine, session rules
 
-### Features
+web/
+  src/                 # React/Vite web product
+  public/              # PWA assets
 
-- Discover local training partners
-- Filter by:
-  - combat style
+mobile/
+  App.js               # fresh Expo/React Native client
+  app.json
+  metro.config.js
+  package.json
+
+android/ ios/ src/     # archived legacy React Native implementation
+```
+
+The web and mobile apps intentionally share the same fighter data model and match engine instead of maintaining two separate versions of the product logic.
+
+## Shared product features
+
+Both clients now include:
+
+- Ranked training-partner discovery
+- Compatibility percentages and match reasons
+- Matching based on:
+  - weight
+  - primary/secondary combat style
   - experience level
+  - availability
+  - preferred intensity
+  - training goal
   - distance
-  - weight range
-- Connect / pass / undo
-- Local training matches
-- Session planner
-- Training intensity and session-type planning
-- Local athlete profile
-- Basic training-safety reminders
+  - gym verification
+- Rich fighter profiles:
+  - stance
+  - years training
+  - competition background
+  - preferred round length
+  - gear
+  - contact preference
+  - availability
+  - home gym
+- Connect / Pass / Undo
+- Local match list
+- Training session planning
+- Session lifecycle: Proposed → Accepted → Completed / Canceled
+- Completed-session history
+- Verified-gym filtering
+- Basic safety/pace guidance
+- First-run onboarding
+- Local-first persistence
 - Dark/light theme
-- Responsive mobile navigation
-- Installable PWA
-- Offline app shell
-- Local persistence via `localStorage`
 
-The current revival intentionally does **not** require a database, login, Firebase, geolocation, push notifications, video calls, or payments.
+The included fighter profiles are fictional demo data.
 
-This lets the original product concept work as a complete portfolio/demo application before any backend is introduced.
+## Web
 
-## Local-first storage
-
-Browser data is saved under:
-
-```
-mix-n-match-v2
-```
-
-Stored data includes:
-
-- skipped profiles
-- training matches
-- planned sessions
-- discovery filters
-- athlete profile
-- theme
-
-The included fighter cards are fictional demo profiles for product demonstration.
-
-## Run the web app
+The web app is built with React and Vite.
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Build
+Production build:
 
 ```bash
 npm run build
 ```
 
-The production output is written to `dist/`.
+Netlify publishes `dist/` using the repository's `netlify.toml`.
 
-## Netlify
+Browser state is stored under `mix-n-match-v3`.
 
-`netlify.toml` is included at the repository root.
+## Mobile
 
-- Build command: `npm run build`
-- Publish directory: `dist`
+The new mobile app uses the current stable Expo line:
 
-## Legacy React Native source
+- Expo SDK 57
+- React Native 0.86.3
+- React 19.2.3
+- AsyncStorage 2.2.0
 
-The original iOS/Android React Native source remains in the repository as historical reference.
+Install and run:
 
-That native app was built around React Native 0.63-era dependencies, Firebase, legacy navigation, Expo unimodules, WebRTC/Twilio, push notifications, and in-app purchases. It is **not** part of the modern web build.
+```bash
+cd mobile
+npm install
+npx expo start
+```
 
-A previously hard-coded legacy in-app-purchase shared secret was removed during the revival.
+Native development builds:
 
-If a native app is revived later, it should be rebuilt on a current React Native architecture rather than attempting to ship the old dependency tree unchanged.
+```bash
+npm run ios
+npm run android
+```
 
-## Product direction
+The mobile app stores local state in AsyncStorage under `mix-n-match-mobile-v1`.
 
-Mix N' Match is now positioned as:
+The mobile implementation is intentionally new. It does not depend on the obsolete Firebase/Twilio/IAP/navigation packages from the archived native app.
 
-> A combat-sports training network for finding compatible sparring and drilling partners by style, size, experience, goals, availability, and preferred intensity.
+## Backend status
 
-The next backend phase, if needed, would add real accounts, profiles, messaging, gym verification, and location-based discovery.
+The current product does not require a backend to demonstrate the full discovery → match → plan → complete training loop.
+
+A future backend phase can add:
+
+- real accounts and athlete profiles
+- messaging
+- gym verification
+- approximate location-based discovery
+- real mutual connection requests
+- push notifications
+- moderation/report review
+- synced training history
+
+Those features should share one backend across web and mobile.
+
+## Legacy native source
+
+The old React Native 0.63 iOS/Android code remains in the repository as historical reference only. It is not part of either modern build.
+
+A hard-coded legacy in-app-purchase shared secret was removed during the first revival pass.
+
+## Validation
+
+GitHub Actions now validates both product surfaces:
+
+1. clean Node 22 web install + Vite production build
+2. shared-core syntax
+3. clean Expo mobile install + dependency check
+4. Android JavaScript export through Expo/Metro
