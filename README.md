@@ -1,5 +1,7 @@
 # Mix N' Match
 
+[![Validation](https://github.com/BTheCoderr/mixNMAtch/actions/workflows/validate-web.yml/badge.svg)](https://github.com/BTheCoderr/mixNMAtch/actions/workflows/validate-web.yml)
+
 <!-- repo-intro:start -->
 **Project snapshot:** Mix N' Match is a combat-sports training partner network with shared matching logic across a React web/PWA client and an Expo/React Native mobile client.
 
